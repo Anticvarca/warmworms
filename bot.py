@@ -1,26 +1,16 @@
 import asyncio
 import logging
 import os
-from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import Message
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
-# --- Настройки ---
-# Токен и URL будут браться из переменных окружения хостинга
+# Токен берется из переменной окружения хостинга
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-# Это адрес, который выдаст хостинг после запуска
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "0.0.0.0") 
-WEBHOOK_PORT = int(os.getenv("PORT", 8080))
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN') or os.getenv('APP_DOMAIN') or 'your-app-domain.justrunmy.app'}{WEBHOOK_PATH}"
 
-# --- Логика бота ---
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Хранилища
 waiting_users = []
 pairs = {}
 
@@ -65,23 +55,10 @@ async def relay(message: Message):
     else:
         await message.answer("Ты не в чате. Напиши /start чтобы найти собеседника.")
 
-# --- Запуск Webhook ---
-async def on_startup(bot: Bot):
-    await bot.set_webhook(WEBHOOK_URL)
-    logging.info(f"Webhook set to {WEBHOOK_URL}")
-
-def main():
-    # Настраиваем веб-сервер для приема сообщений от Telegram
-    app = web.Application()
-    webhook_requests_handler = SimpleRequestHandler(
-        dispatcher=dp,
-        bot=bot,
-    )
-    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-    setup_application(app, dp, bot=bot)
-    
-    # Запускаем сервер на порту, который выдал хостинг
-    web.run_app(app, host=WEBHOOK_HOST, port=WEBHOOK_PORT)
+async def main():
+    # Удаляем старые вебхуки, чтобы не было конфликтов
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
